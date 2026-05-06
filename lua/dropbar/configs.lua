@@ -320,7 +320,8 @@ M.opts = {
         'WinResized',
       },
       buf = {
-        'BufModifiedSet',
+        vim.fn.exists('##BufModifiedSet') == 1
+          and 'BufModifiedSet' or 'OptionSet',
         'FileChangedShellPost',
         'TextChanged',
         'ModeChanged',

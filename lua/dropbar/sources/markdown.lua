@@ -227,8 +227,30 @@ local function attach(buf)
     return
   end
 
-  vim.b[buf].dropbar_markdown_heading_parser_attached =
-    vim.api.nvim_create_autocmd(configs.opts.bar.update_events.buf, {
+  local buf_update_events = configs.opts.bar.update_events.buf
+  vim.b[buf].dropbar_markdown_heading_parser_attached = {}
+
+  if vim.tbl_contains(buf_update_events, 'OptionSet') then
+    buf_update_events = vim.tbl_filter(function(event)
+      return event ~= 'OptionSet'
+    end, buf_update_events)
+
+    table.insert(
+      vim.b[buf].dropbar_markdown_heading_parser_attached,
+      vim.api.nvim_create_autocmd('OptionSet', {
+        desc = 'Update markdown heading symbols on buffer change.',
+        pattern = 'modified',
+        group = groupid,
+        callback = function(args)
+          parse_buf(args.buf)
+        end,
+      })
+    )
+  end
+
+  table.insert(
+    vim.b[buf].dropbar_markdown_heading_parser_attached,
+    vim.api.nvim_create_autocmd(buf_update_events, {
       desc = 'Update markdown heading symbols on buffer change.',
       group = groupid,
       buffer = buf,
@@ -236,6 +258,7 @@ local function attach(buf)
         parse_buf(args.buf)
       end,
     })
+  )
   parse_buf(buf)
 end
 
@@ -243,10 +266,12 @@ end
 ---@param buf integer buffer handler
 ---@return nil
 local function detach(buf)
-  if vim.b[buf].dropbar_markdown_heading_parser_attached then
-    vim.api.nvim_del_autocmd(
-      vim.b[buf].dropbar_markdown_heading_parser_attached
-    )
+  if vim.b[buf].dropbar_markdown_heading_parser_attached
+    and not vim.tbl_isempty(vim.b[buf].dropbar_markdown_heading_parser_attached)
+  then
+    for _, autocmd in ipairs(vim.b[buf].dropbar_markdown_heading_parser_attached) do
+      vim.api.nvim_del_autocmd(autocmd)
+    end
     vim.b[buf].dropbar_markdown_heading_parser_attached = nil
     markdown_heading_buf_symbols[buf] = nil
   end

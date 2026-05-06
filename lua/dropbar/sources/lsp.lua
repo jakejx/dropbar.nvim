@@ -359,19 +359,44 @@ local function attach(buf)
     return
   end
 
-  if vim.b[buf].dropbar_lsp_attached then
+  if vim.b[buf].dropbar_lsp_attached
+    and not vim.tbl_isempty(vim.b[buf].dropbar_lsp_attached)
+  then
     return
   end
 
   update_symbols(buf)
-  vim.b[buf].dropbar_lsp_attached =
-    vim.api.nvim_create_autocmd(configs.opts.bar.update_events.buf, {
+
+  local buf_update_events = configs.opts.bar.update_events.buf
+  vim.b[buf].dropbar_lsp_attached = {}
+
+  if vim.tbl_contains(buf_update_events, 'OptionSet') then
+    buf_update_events = vim.tbl_filter(function(event)
+      return event ~= 'OptionSet'
+    end, buf_update_events)
+
+    table.insert(
+      vim.b[buf].dropbar_lsp_attached,
+      vim.api.nvim_create_autocmd('OptionSet', {
+        pattern = 'modified',
+        group = groupid,
+        callback = function(args)
+          update_symbols(args.buf)
+        end,
+      })
+    )
+  end
+
+  table.insert(
+    vim.b[buf].dropbar_lsp_attached,
+    vim.api.nvim_create_autocmd(buf_update_events, {
       group = groupid,
       buffer = buf,
       callback = function(args)
         update_symbols(args.buf)
       end,
     })
+  )
 end
 
 ---Detach LSP symbol getter from buffer
@@ -381,8 +406,12 @@ local function detach(buf)
     return
   end
 
-  if vim.b[buf].dropbar_lsp_attached then
-    vim.api.nvim_del_autocmd(vim.b[buf].dropbar_lsp_attached)
+  if vim.b[buf].dropbar_lsp_attached
+    and not vim.tbl_isempty(vim.b[buf].dropbar_lsp_attached)
+  then
+    for _, autocmd in ipairs(vim.b[buf].dropbar_lsp_attached) do
+      vim.api.nvim_del_autocmd(autocmd)
+    end
     vim.b[buf].dropbar_lsp_attached = nil
     lsp_buf_symbols[buf] = nil
     for _, dropbar in pairs(_G.dropbar.bars[buf]) do

@@ -107,8 +107,24 @@ local function setup(opts)
     })
   end
 
-  if not vim.tbl_isempty(configs.opts.bar.update_events.buf) then
-    vim.api.nvim_create_autocmd(configs.opts.bar.update_events.buf, {
+  local buf_update_events = configs.opts.bar.update_events.buf
+  if not vim.tbl_isempty(buf_update_events) then
+    if vim.tbl_contains(buf_update_events, 'OptionSet') then
+      buf_update_events = vim.tbl_filter(function(event)
+        return event ~= 'OptionSet'
+      end, buf_update_events)
+
+      vim.api.nvim_create_autocmd('OptionSet', {
+        pattern = 'modified',
+        group = groupid,
+        callback = function(args)
+          utils.bar.exec('update', { buf = args.buf })
+        end,
+        desc = 'Update all winbars associated with buf.',
+      })
+    end
+
+    vim.api.nvim_create_autocmd(buf_update_events, {
       group = groupid,
       callback = function(args)
         utils.bar.exec('update', { buf = args.buf })
